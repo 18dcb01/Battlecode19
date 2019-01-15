@@ -77,12 +77,6 @@ class MyRobot(BCAbstractRobot):
             if self.robotSpawn == -1:
                 self.robotSpawn = 0
 
-            for robot in self.get_visible_robots(): # if any teammate is requesting a certain signal, respond
-                if robot.team == self.me["team"]:
-                    if robot.signal == COMMUNICATION["ASK_TOTAL_SPAWNED_UNITS"]:
-                        self.signal(2, self.unit_count)
-                        signaling = True
-
             for dx, dy in choices:
                 newX = myX + dx
                 newY = myY + dy
@@ -90,7 +84,6 @@ class MyRobot(BCAbstractRobot):
                     self.signal(self.robotSpawn,abs(dx)+abs(dy))
                     self.robotSpawn += 1
                     self.unit_count += 1
-                    diction["0"] += 1
                     return self.build_unit(SPECS["PILGRIM"], dx, dy)
 
         elif self.me['unit'] == SPECS['PILGRIM']:
@@ -164,7 +157,7 @@ class MyRobot(BCAbstractRobot):
                 return self.mine()
 
             else: #  search through already known fuel and karbonite points to get to closest resource
-                ignore = diction["0"] -1 # specifies the number of squares to ignore in search
+                ignore = 0 # specifies the number of squares to ignore in search
                 fuel_check = True # if true, this will check for closest fuel resource
                 karbonite_check = True #if true, this will check for closest karbonite resource
                 found_fuel_heuristic = self.found_fuel_heuristic[:]
