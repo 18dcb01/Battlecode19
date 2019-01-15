@@ -157,7 +157,7 @@ class MyRobot(BCAbstractRobot):
                 return self.mine()
 
             else: #  search through already known fuel and karbonite points to get to closest resource
-                ignore = 0 # specifies the number of squares to ignore in search
+                ignore = self.robotSpawn # specifies the number of squares to ignore in search
                 fuel_check = True # if true, this will check for closest fuel resource
                 karbonite_check = True #if true, this will check for closest karbonite resource
                 found_fuel_heuristic = self.found_fuel_heuristic[:]
