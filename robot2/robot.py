@@ -62,7 +62,6 @@ class MyRobot(BCAbstractRobot):
 
         myX = self.me["x"]
         myY = self.me["y"]
-        signaling = False
         choices = [(0, 1), (1, 0), (-1, 0), (0, -1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
         occupied = []
 
@@ -104,6 +103,7 @@ class MyRobot(BCAbstractRobot):
                         if -2 < dx < 2 and -2 < dy < 2:
                             self.full = False
                             self.log("Depositing at " + robot.x + ", " + robot.y)
+                            self.myPath = []
                             return self.give(dx, dy, self.me.karbonite, self.me.fuel)
 
             if self.spawn_castle == []:
@@ -137,7 +137,20 @@ class MyRobot(BCAbstractRobot):
             if self.myPath != []:
                 m = self.movenext(myX, myY, occupied)
                 if not m:
-                    self.myPath = []
+
+                    if self.full:
+                        X, Y = self.spawn_castle[0], self.spawn_castle[1]
+                        distance_sq_choices = [((myX - X - dx) ** 2 + (myY - Y - dy) ** 2, dx, dy) for dx, dy in choices]
+                        for distance_sq_choices, dx, dy in sorted(distance_sq_choices):
+                            for r in occupied:
+                                if (r[0], r[1]) == (X + dx, Y + dy):
+                                    break
+                            else:
+                                self.myPath = self.pathfindsteps(myX, myY, X + dx, Y + dy, [], [])
+                                self.log("deposit path... " + str(self.myPath))
+                                return self.movenext(myX, myY, occupied)
+                    else:
+                        self.myPath = []
                 return m
 
             # if on a resource, mine
@@ -145,7 +158,8 @@ class MyRobot(BCAbstractRobot):
                 if self.me.fuel == 100 or self.me.karbonite == 10:
                     self.full = True
                     X, Y = self.spawn_castle[0], self.spawn_castle[1]
-                    for dx, dy in choices:
+                    distance_sq_choices = [((myX-X-dx)**2 + (myY-Y-dy)**2,dx,dy) for dx,dy in choices]
+                    for distance_sq_choices, dx, dy in sorted(distance_sq_choices):
                         for r in occupied:
                             if (r[0], r[1]) == (X + dx, Y + dy):
                                 break
