@@ -142,9 +142,8 @@ class MyRobot(BCAbstractRobot):
                         X, Y = self.spawn_castle[0], self.spawn_castle[1]
                         distance_sq_choices = [((myX - X - dx) ** 2 + (myY - Y - dy) ** 2, dx, dy) for dx, dy in choices]
                         for distance_sq_choices, dx, dy in sorted(distance_sq_choices):
-                            for r in occupied:
-                                if (r[0], r[1]) == (X + dx, Y + dy):
-                                    break
+                            if not self.check_valid_square(X + dx, Y + dy, occupied):
+                                break
                             else:
                                 self.myPath = self.pathfindsteps(myX, myY, X + dx, Y + dy, [], [])
                                 self.log("deposit path... " + str(self.myPath))
@@ -160,9 +159,8 @@ class MyRobot(BCAbstractRobot):
                     X, Y = self.spawn_castle[0], self.spawn_castle[1]
                     distance_sq_choices = [((myX-X-dx)**2 + (myY-Y-dy)**2,dx,dy) for dx,dy in choices]
                     for distance_sq_choices, dx, dy in sorted(distance_sq_choices):
-                        for r in occupied:
-                            if (r[0], r[1]) == (X + dx, Y + dy):
-                                break
+                        if not self.check_valid_square(X+dx,Y+dy,occupied):
+                            break
                         else:
                             self.myPath = self.pathfindsteps(myX, myY, X + dx, Y + dy ,[], [])
                             self.log("deposit path... " + str(self.myPath))
