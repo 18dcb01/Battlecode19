@@ -76,6 +76,8 @@ class MyRobot(BCAbstractRobot):
             # check empty space to spawn unit
             if self.robotSpawn == -1:
                 self.robotSpawn = 0
+                
+            if self.turn == 5:
 
             for dx, dy in choices:
                 newX = myX + dx
