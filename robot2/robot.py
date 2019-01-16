@@ -29,7 +29,7 @@ __pragma__('opov')
 
 
 ######## BUGS ##########
-# pilgrims do not mine at unique squares
+#
 #
 #
 #######################
@@ -55,11 +55,10 @@ class MyRobot(BCAbstractRobot):
     found_karbonite_heuristic = []
     found_fuel_heuristic = []
     ignore_xy = []
-    unit_count = 0
+    unit_counts = {"PILGRIM":0, "CRUSADER":0}
     robotSpawn = -1
 
     def turn(self):
-
         myX = self.me["x"]
         myY = self.me["y"]
         choices = [(0, 1), (1, 0), (-1, 0), (0, -1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
@@ -79,14 +78,14 @@ class MyRobot(BCAbstractRobot):
             for dx, dy in choices:
                 newX = myX + dx
                 newY = myY + dy
-                if self.check_valid_square(newX, newY, occupied) and self.karbonite > 95:
+                if self.check_valid_square(newX, newY, occupied):
                     self.signal(self.robotSpawn,abs(dx)+abs(dy))
                     self.robotSpawn += 1
-                    self.unit_count += 1
+                    self.unit_counts["PILGRIM"] += 1
                     return self.build_unit(SPECS["PILGRIM"], dx, dy)
 
         elif self.me['unit'] == SPECS['PILGRIM']:
-            self.log("my Path " + str(self.myPath))
+            #self.log("my Path " + str(self.myPath))
             
             if self.robotSpawn == -1:
                 for r in self.get_visible_robots():
@@ -137,7 +136,6 @@ class MyRobot(BCAbstractRobot):
             if self.myPath != []:
                 m = self.movenext(myX, myY, occupied)
                 if not m:
-
                     if self.full:
                         X, Y = self.spawn_castle[0], self.spawn_castle[1]
                         distance_sq_choices = [((myX - X - dx) ** 2 + (myY - Y - dy) ** 2, dx, dy) for dx, dy in choices]
@@ -170,10 +168,13 @@ class MyRobot(BCAbstractRobot):
 
             else: #  search through already known fuel and karbonite points to get to closest resource
                 ignore = self.robotSpawn # specifies the number of squares to ignore in search
-                fuel_check = True # if true, this will check for closest fuel resource
+                fuel_check = False # if true, this will check for closest fuel resource
                 karbonite_check = True #if true, this will check for closest karbonite resource
                 found_fuel_heuristic = self.found_fuel_heuristic[:]
                 found_karbonite_heuristic = self.found_karbonite_heuristic[:]
+
+                if self.robotSpawn >=3:
+                    fuel_check = True
 
                 if fuel_check == karbonite_check:
                     count = len(self.found_fuel) + len(self.found_karbonite)
