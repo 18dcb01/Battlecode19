@@ -57,6 +57,7 @@ class MyRobot(BCAbstractRobot):
     ignore_xy = []
     unit_count = 0
     robotSpawn = -1
+    castleCount = -1
 
     def turn(self):
 
@@ -65,6 +66,9 @@ class MyRobot(BCAbstractRobot):
         signaling = False
         choices = [(0, 1), (1, 0), (-1, 0), (0, -1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
         occupied = []
+        robotCount = 0
+        castles = []
+        castleLocs = []
 
         for robot in self.get_visible_robots():
             if (robot.x, robot.y) != (myX, myY):
@@ -76,8 +80,41 @@ class MyRobot(BCAbstractRobot):
             # check empty space to spawn unit
             if self.robotSpawn == -1:
                 self.robotSpawn = 0
+            if self.turn == 0:
+                self.castleTalk(255)
+                for i in self.me.get_visible_robots():
+                    if i.castle_talk == 255:
+                        castles.append(i.id)
+                castles.append(this.me.id)
+            elif self.turn == 1:
+                self.castleTalk(myX)
+                for i in range(len(castles)):
+                    castleLocs.append((self.getRobot(i).castle_talk,0))
+                for i in self.me.get_visible_robots():
+                    if i.castle_talk == 255:
+                        castles.append(i.id)
+            elif self.turn == 2:
+                passedSelf = false
+                for i in range(len(self.castles())):
+                    self.castleTalk(myY)
+                    if not passedSelf:
+                        self.castleLoc[i][1]=self.getRobot(castles[i]).castle_talk
+                        if castles[i] == this.me['id']:
+                            passedSelf = true
+                    else:
+                        self.castleLoc.append((self.getRobot(i).castle_talk,0))
+            elif self.turn == 3:
+                passedSelf = false
+                for i in range(len(self.castles())):
+                    if not passedSelf:
+                        if castles[i] == this.me['id']:
+                            passedSelf = true
+                    else:
+                        self.castleLoc[i][1]=self.getRobot(castles[i]).castle_talk
+                    
+                        
                 
-            if self.turn == 5:
+                
 
             for dx, dy in choices:
                 newX = myX + dx
