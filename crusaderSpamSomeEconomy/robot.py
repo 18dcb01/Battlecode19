@@ -53,16 +53,18 @@ class MyRobot(BCAbstractRobot):
     ignore_xy = []
     unit_counts = {"PILGRIM": 0, "CRUSADER": 0}
     robotSpawn = -1
+    a,b = 9,7
 
     def turn(self):
 
         myX = self.me["x"]
         myY = self.me["y"]
+        
         choices = [(0, 1), (1, 0), (-1, 0), (0, -1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
         occupied = []
 
         for robot in self.get_visible_robots():
-            
+
             if (robot.x, robot.y) != (myX, myY):
                 occupied.append((robot.x, robot.y))
 
@@ -76,16 +78,19 @@ class MyRobot(BCAbstractRobot):
             for dx, dy in choices:
                 newX = myX + dx
                 newY = myY + dy
-                if self.check_valid_square(newX, newY, occupied):
-                    if self.me["turn"] <= 4: #spawn 1 pilgrims per castle
-                        self.signal(self.robotSpawn, abs(dx) + abs(dy))
-                        self.robotSpawn += 1
-                        self.unit_counts["PILGRIM"] += 1
-                        return self.build_unit(SPECS["PILGRIM"], dx, dy)
+                if self.check_valid_square(newX, newY, occupied) and self.me["turn"] < 30:
+                    if self.me["turn"] <= 3 or self.a <= self.me["turn"] <= self.b:
+                        if self.karbonite >= 10 and self.fuel >= 50: #spawn 4 pilgrims per castle
+                            self.signal(self.robotSpawn, abs(dx) + abs(dy))
+                            self.robotSpawn += 1
+                            self.unit_counts["PILGRIM"] += 1
+                            return self.build_unit(SPECS["PILGRIM"], dx, dy)
+                        else:
+                            self.a += 1
+                            self.b += 1
                     return self.build_unit(SPECS["CRUSADER"], dx, dy)
 
         elif self.me['unit'] == SPECS['PILGRIM']:
-            # self.log("my Path " + str(self.myPath))
 
             if self.robotSpawn == -1:
                 for r in self.get_visible_robots():
@@ -102,7 +107,6 @@ class MyRobot(BCAbstractRobot):
                         dx, dy = robot.x - myX, robot.y - myY
                         if -2 < dx < 2 and -2 < dy < 2:
                             self.full = False
-                            self.log("Depositing at " + robot.x + ", " + robot.y)
                             self.myPath = []
                             return self.give(dx, dy, self.me.karbonite, self.me.fuel)
 
@@ -142,7 +146,7 @@ class MyRobot(BCAbstractRobot):
                                 break
                             else:
                                 self.myPath = self.pathfindsteps(myX, myY, X + dx, Y + dy, [], [])
-                                self.log("deposit path... " + str(self.myPath))
+
                                 return self.movenext(myX, myY, occupied)
                     else:
                         self.myPath = []
@@ -150,7 +154,7 @@ class MyRobot(BCAbstractRobot):
 
             # if on a resource, mine
             elif (self.karbonite_map[myY][myX] or self.fuel_map[myY][myX]):
-                if self.me.fuel == 100 or self.me.karbonite == 10:
+                if self.me.fuel == 100 or self.me.karbonite == 20:
                     self.full = True
                     X, Y = self.spawn_castle[0], self.spawn_castle[1]
                     distance_sq_choices = [((myX - X - dx) ** 2 + (myY - Y - dy) ** 2, dx, dy) for dx, dy in choices]
@@ -159,9 +163,9 @@ class MyRobot(BCAbstractRobot):
                             break
                         else:
                             self.myPath = self.pathfindsteps(myX, myY, X + dx, Y + dy, [], [])
-                            self.log("deposit path... " + str(self.myPath))
+
                             return self.movenext(myX, myY, occupied)
-                self.log("Mining at" + myX + ',' + myY)
+
                 return self.mine()
 
             else:  # search through already known fuel and karbonite points to get to closest resource
@@ -172,7 +176,7 @@ class MyRobot(BCAbstractRobot):
                 found_karbonite_heuristic = self.found_karbonite_heuristic[:]
                 ignore_k = 0
                 ignore_f = 0
-                if self.robotSpawn >= 3:
+                if self.robotSpawn >= 2:
                     fuel_check = True
                     ignore_k = 2  # ignore the first two karbonite
 
@@ -191,8 +195,8 @@ class MyRobot(BCAbstractRobot):
                 while count > 0:
                     min_index = found_heuristic.index(min(found_heuristic))
                     found_heuristic[min_index] = 69696996969
-
-                    if ignore == 0 and ignore_k <= 0 and ignore_f <= 0:
+                    x,y = found[min_index]
+                    if ignore == 0 and (self.karbonite_map[y][x] and ignore_k <= 0) or (ignore_f <= 0 and self.fuel_map[y][x]):
                         for r in self.get_visible_robots():
                             if (r.x, r.y) == found[min_index]:
                                 if r.team == self.me['team'] and r.unit == self.me['unit']:
@@ -202,23 +206,26 @@ class MyRobot(BCAbstractRobot):
 
                             self.myPath = self.pathfindsteps(myX, myY, found[min_index][0],
                                                              found[min_index][1], [], [])
-                            self.log("found new mining path " + str(self.myPath))
+
                             return self.movenext(myX, myY, occupied)
                     ignore -= 1
-                    ignore_k -= 1
-                    ignore_f -= 1
+                    if self.karbonite_map[y][x]:
+                        ignore_k -= 1
+                    if self.fuel_map[y][x]:
+                        ignore_f -= 1
                     count -= 1
 
         elif SPECS["CRUSADER"] == self.me["unit"]:
             ret = self.if_visible_attack(myX,myY)
             if not ret: # if nothing is in range to attack, move to random point
-                if self.myPath == []:
+                if self.myPath == [] and self.fuel >= 200:
                     x = random.randint(0, len(self.map)-1)
                     y = random.randint(0, len(self.map)-1)
                     if self.check_valid_square(x,y,occupied):
                         self.myPath = self.pathfindsteps(myX, myY, x, y, [],occupied)
-                        self.movenext(myX, myY,occupied)
-                self.movenext(myY, myX, occupied)
+                        self.signal(x <<8 + y, 0)
+                        return self.movenext(myX, myY,occupied)
+                return self.movenext(myX, myY, occupied)
             return ret # otherwise, attack!
 
 
@@ -228,9 +235,8 @@ class MyRobot(BCAbstractRobot):
         radius_min, radius_max = SPECS["UNITS"][self.me["unit"]]["ATTACK_RADIUS"]
 
         # check to see that the enemy is within attacking range
-        attackable_robots = [r for r in enemies if radius_min**2 <= ((myX-r.x)**2 + (myY-r.y)**2) <= radius_max**2]
+        attackable_robots = [r for r in enemies if radius_min <= ((myX-r.x)**2 + (myY-r.y)**2) <= radius_max]
         maxid = max([i.id for i in attackable_robots])
-
         for r in attackable_robots:
             if r.id == maxid:
                 return self.attack(r.x-myX, r.y-myY)
@@ -277,7 +283,7 @@ class MyRobot(BCAbstractRobot):
                 # if square could be landed on by previous move, ignore
                 return False
 
-        path = [(x, y)] + path  # add current coordinated to front of list
+        path = [(x, y)] + path  # add current coordinates to front of list
         possible_moves = self.ranges[str(max_speed)]
         harray = []
 
@@ -335,7 +341,7 @@ class MyRobot(BCAbstractRobot):
             return self.move(self.myPath[-1][0] - myX, self.myPath[-1][1] - myY)
 
         if not any(boolMap):  # if destination is occupied all other moves are occupied, give up
-            self.log("Giving up! All moves are occupied " + str(self.myPath))
+            #self.log("Giving up! All moves are occupied " + str(self.myPath))
             return False
 
         newRoute = [self.myPath[0]]

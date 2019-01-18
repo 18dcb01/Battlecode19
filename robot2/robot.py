@@ -172,6 +172,8 @@ class MyRobot(BCAbstractRobot):
                 karbonite_check = True #if true, this will check for closest karbonite resource
                 found_fuel_heuristic = self.found_fuel_heuristic[:]
                 found_karbonite_heuristic = self.found_karbonite_heuristic[:]
+                ignore_k = 0
+                ignore_f = 0
 
                 if self.robotSpawn >=3:
                     fuel_check = True
@@ -191,8 +193,8 @@ class MyRobot(BCAbstractRobot):
                 while count > 0:
                     min_index = found_heuristic.index(min(found_heuristic))
                     found_heuristic[min_index] = 69696996969
-
-                    if ignore == 0:
+                    x,y = found[min_index]
+                    if ignore == 0 and (self.karbonite_map[y][x] and ignore_k <= 0) or (ignore_f <= 0 and self.fuel_map[y][x]):
                         for r in self.get_visible_robots():
                             if (r.x, r.y) == found[min_index]:
                                 if r.team == self.me['team'] and r.unit == self.me['unit']:
@@ -201,10 +203,12 @@ class MyRobot(BCAbstractRobot):
                         else:
 
                             self.myPath = self.pathfindsteps(myX, myY, found[min_index][0],
-                                                         found[min_index][1], [], [])
+                                                             found[min_index][1], [], [])
                             self.log("found new mining path " + str(self.myPath))
                             return self.movenext(myX, myY, occupied)
                     ignore -= 1
+                    ignore_k -= 1
+                    ignore_f -= 1
                     count -= 1
 
 
