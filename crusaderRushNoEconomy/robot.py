@@ -25,11 +25,13 @@ __pragma__('opov')
 
 
 ######## BUGS ##########
-#
+#uses propose trade to communicate between castles which is quite unreliable
 #
 #
 #######################
 
+
+#TODO: spawn first unit with knowledge of first castle, second with knowledge of second castle and so on
 
 class MyRobot(BCAbstractRobot):
     # simple strat: spawn pilgrims, locate closest resources, dig
