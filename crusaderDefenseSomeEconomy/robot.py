@@ -25,15 +25,12 @@ __pragma__('opov')
 
 
 ######## BUGS ##########
-#uses propose trade to communicate between castles which is quite unreliable
-# due to the above flaw, cannot detect 3 castles
-#detects two castles when there is in fact only one
+#
+#
 #
 #######################
 
 
-#TODO: spawn first unit with knowledge of first castle, second with knowledge of second castle and so on
-#TODO: add vision and grouping so units don't trickle into line of fire 
 class MyRobot(BCAbstractRobot):
     # simple strat: spawn pilgrims, locate closest resources, dig
     # pathfinding done! not tested extensively yet tho
@@ -56,20 +53,13 @@ class MyRobot(BCAbstractRobot):
     ignore_xy = []
     unit_counts = {"PILGRIM": 0, "CRUSADER": 0}
     robotSpawn = -1
-    first_castle = False
-    enemy_castle_locations = []
-    symmetry = []
     a,b = 9,7
-    my_castle_locations = []
-    visited_points = []
-    way_points = []
-    already_signaled = False
 
     def turn(self):
 
         myX = self.me["x"]
         myY = self.me["y"]
-
+        
         choices = [(0, 1), (1, 0), (-1, 0), (0, -1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
         occupied = []
 
@@ -81,41 +71,28 @@ class MyRobot(BCAbstractRobot):
             # squares occupied by other robots are stored as x,y elements in list occupied
 
         if self.me['unit'] == SPECS['CASTLE']:
+
+            r = self.if_visible_attack(myY, myX)
+            if r != False:
+                return r
             # check empty space to spawn unit
             if self.robotSpawn == -1:
                 self.robotSpawn = 0
 
-            if self.my_castle_locations == [] and self.first_castle: # if the first castle, figure where other castles are
-                number_castles, signal = self.last_offer[self.me["team"]]
-                locations = self.convert_compressed_signal(-signal,1)[:-number_castles]
-                self.my_castle_locations = locations
-
-            if self.first_castle == False and self.last_offer[self.me["team"]][0] > -1:
-                self.first_castle = True
-                self.log(self.last_offer)
-                return self.propose_trade(-1,0)
-
-            if not self.first_castle:
-                if not self.already_signaled: # broadcast location and do nothing else if not the first castle
-                    self.already_signaled = True
-                    self.log(-((self.last_offer[self.me["team"]][1] << 12) + self.compress_coordinates([(myX, myY)],1)))
-                    return self.propose_trade(self.last_offer[self.me["team"]][1] - 1,-((self.last_offer[self.me["team"]][1] << 12) + self.compress_coordinates([(myX, myY)],1)))
-                return self.if_visible_attack(myX,myY)
-
             for dx, dy in choices:
                 newX = myX + dx
                 newY = myY + dy
-                if self.check_valid_square(newX, newY, occupied) and self.karbonite >= 15 and self.first_castle:
+                if self.check_valid_square(newX, newY, occupied) and self.me["turn"] < 30:
+                    if self.me["turn"] <= 3 or self.a <= self.me["turn"] <= self.b:
+                        if self.karbonite >= 10 and self.fuel >= 50: #spawn 4 pilgrims per castle
+                            self.signal(self.robotSpawn, abs(dx) + abs(dy))
+                            self.robotSpawn += 1
+                            self.unit_counts["PILGRIM"] += 1
+                            return self.build_unit(SPECS["PILGRIM"], dx, dy)
+                        else:
+                            self.a += 1
+                            self.b += 1
                     return self.build_unit(SPECS["CRUSADER"], dx, dy)
-            else:
-                if not self.already_signaled:
-                    self.log("GO TIME!")
-                    coords = self.find_enemy_castles()
-                    signal = self.compress_coordinates(coords)
-                    self.signal(signal, 4)
-                    self.already_signaled = True
-                return self.if_visible_attack(myX, myY)
-
 
         elif self.me['unit'] == SPECS['PILGRIM']:
 
@@ -243,121 +220,8 @@ class MyRobot(BCAbstractRobot):
                     count -= 1
 
         elif SPECS["CRUSADER"] == self.me["unit"]:
-            myX = self.me["x"]
-            myY = self.me["y"]
-            ret = self.if_visible_attack(myX, myY)
-            if ret != False:
-                return ret
-            for robot in self.get_visible_robots():
-                if robot.signal != -1 and self.me["team"] == robot.team:
-                    if robot.unit == SPECS["CASTLE"]:
-                        self.log(robot.signal)
-                        coords = self.convert_compressed_signal(robot.signal)
-                        coords = [i for i in coords if i != (0,0)]
-                        self.symmetry = self.find_symmetry()
-                        coords = [self.reflect(robot.x, robot.y,self.symmetry[1],self.symmetry[0])] + coords
+            return self.if_visible_attack(myX,my) # do nothing but attack
 
-                        r = []
-                        for x,y in coords:
-                            r.append(self.fix_approximation(x,y,4))
-                        self.log("ENEMY CASTLES" + str(r))
-                        self.way_points = r
-                    if robot.signal == 1 and robot.unit == SPECS["CRUSADER"]:
-                        self.myPath = []
-                        break
-
-            if self.myPath == []: # if no path queued, start moving to the first enemy castle not visited
-
-
-                self.log(self.myPath)
-                for point in self.way_points:
-                    for visited_point in self.visited_points:
-                        if visited_point == point:
-                            break
-                    else:
-                        self.visited_points.append(point)
-                        fixed = self.fix_approximation(point[0],point[1],4)
-                        self.myPath = self.pathfindsteps(myX,myY,fixed[0],fixed[1],[],occupied)[:-1]# MIGHT RUN INTO ISSUES
-                        self.log(self.myPath)
-                        return self.movenext(myX,myY,occupied)
-            else:
-                if len(self.myPath) == 1:
-                    self.signal(1, 6)
-                return self.movenext(myX, myY, occupied)
-
-    def fix_approximation(self, x,y, approximation): # fixes compressed signals to valid points
-        for newx in range(x, x+approximation):
-            for newy in range(y, y+approximation):
-                if self.map[newy][newx]:
-                    return newx, newy
-
-    def compress_coordinates(self, coords, approx = 4): # convert valid coordinates into a compressed signal
-        signal = 0
-        for enemy_x, enemy_y in coords:
-            signal += enemy_x // approx
-            signal <<= (6 - approx//2)
-            signal += enemy_y // approx
-            signal <<= (6 - approx//2)
-        signal >>= (6 - approx//2)
-        return signal
-    def convert_compressed_signal(self, signal, approx = 4):  # convert a compressed signal to valid coordinates:
-        coords = []
-        while signal > 0:
-            y = (signal % (64//approx)) * approx
-            signal >>= (6 - (approx//2))
-            x = (signal % (64//approx)) * approx
-            signal >>= (6 - (approx//2))
-            coords.append((x, y))
-        while len(coords) < 2:
-            coords.append((0, 0))
-        return coords
-
-    def find_enemy_castles(self):
-        # uses symmetry to compute the location of enemy castles
-        r = []
-        if self.symmetry == []:
-            self.symmetry = self.find_symmetry()
-        self.log("SYMMETRY " + str(self.symmetry))
-        for castle in self.my_castle_locations:
-            x,y = castle
-            self.log(str((x,y)))
-            self.log(self.reflect(x,y,self.symmetry[1], self.symmetry[0]))
-            r.append(self.reflect(x,y,self.symmetry[1],self.symmetry[0]))
-
-        return r
-
-    def find_symmetry(self):
-        # returns array r
-        # returns r[0] = True if vertically symmetric
-        # returns r[1] = True if horizontally
-        r = [True, True]
-        if self.found_karbonite == []:
-            for y, col in enumerate(self.karbonite_map):
-                for x, item in enumerate(col):
-                    if item:
-                        self.found_karbonite += [(x, y)]
-
-        for x,y in self.found_karbonite:
-            hor_x, hor_y = self.reflect(x,y,True)
-            ver_x, ver_y = self.reflect(x,y,False,True)
-            if not self.karbonite_map[hor_y][hor_x]:
-                r[1] = False
-
-            if not self.karbonite_map[ver_y][ver_x]:
-                r[0] = False
-
-        return r
-
-
-    def reflect(self, x, y, x_axis = False, y_axis = False):
-        # finds a point that is reflected across the middle of the board
-        mid_point = len(self.map)-1
-        newx, newy = x,y
-        if x_axis:
-            newx = mid_point - x
-        if y_axis:
-            newy = mid_point - y
-        return newx, newy
 
 
     def if_visible_attack(self, myX, myY):
@@ -449,6 +313,11 @@ class MyRobot(BCAbstractRobot):
             return False
 
         dx, dy = self.myPath[-1][0] - myX, self.myPath[-1][1] - myY
+        if dx ** 2 + dy ** 2 > SPECS["UNITS"][self.me["unit"]]["SPEED"]:
+            # if step is too large
+            self.myPath = []
+            return False
+
         # if there is a single move in myPath, and it is the final destination, ignore
         if dy == dx == 0:
             self.myPath = self.myPath[:-1]

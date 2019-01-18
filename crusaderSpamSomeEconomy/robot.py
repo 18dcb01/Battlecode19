@@ -71,6 +71,10 @@ class MyRobot(BCAbstractRobot):
             # squares occupied by other robots are stored as x,y elements in list occupied
 
         if self.me['unit'] == SPECS['CASTLE']:
+
+            r = self.if_visible_attack(myY, myX)
+            if r != False:
+                return r
             # check empty space to spawn unit
             if self.robotSpawn == -1:
                 self.robotSpawn = 0
