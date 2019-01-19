@@ -220,7 +220,7 @@ class MyRobot(BCAbstractRobot):
                     count -= 1
 
         elif SPECS["CRUSADER"] == self.me["unit"]:
-            return self.if_visible_attack(myX,my) # do nothing but attack
+            return self.if_visible_attack(myX,myX) # do nothing but attack
 
 
 
