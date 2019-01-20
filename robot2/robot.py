@@ -1,288 +1,4 @@
-########################################
-####### CODE BY RANDOM WALK ############
-########################################
-
-from battlecode import BCAbstractRobot, SPECS
-import battlecode as bc
-
-__pragma__('iconv')
-__pragma__('tconv')
-__pragma__('opov')
-
-
-# NO GLOBAL VARIABLES ALLOWED Y'ALL
-# The origin is in the top left corner for move stuff
-# MAJOR CHANGES HAVE BEEN MADE AND MARKED
-
-#######Known Strange Behaviors#########
-#The online ide is broken, I suggest you run locally
-#Transcrypt doesn't like it when you use "in" for boolean expressions
-#to access 2d arrays you use array[y][x] instead of array[x][y]
-# == None and != None are not allowed
-# self.log reduces performance, remove if not debugging
-#####################################
-
-
-
-######## BUGS ##########
-# pathfinders do not account for other units
-# pathfinders can find bad paths
 #
-#######################
-
-
-class MyRobot(BCAbstractRobot):
-    # simple strat: spawn pilgrims, locate closest resources(not done), dig(not done)
-    # pathfinding done! not tested extensively yet tho
-    # no aggro implemented yet
-
-    full = False
-    ranges = {
-        "4": [[1, 1], [-1, -1], [-1, 1], [1, -1], [0, 1], [1, 0], [0, -1], [-1, 0], [2, 0], [-2, 0], [0, 2], [0, -2]],
-        "9": [[3, 0], [-3, 0], [0, 3], [0, -3], [2, 1], [-2, 1], [-2, -1], [2, -1], [1, 2], [-1, 2], [-1, -2], [1, -2],
-              [2, 2], [-2, -2], [-2, 2], [2, -2], [1, 1], [-1, -1], [-1, 1], [1, -1], [0, 1], [1, 0], [0, -1], [-1, 0],
-              [2, 0],
-              [-2, 0], [0, 2], [0, -2]]
-    }
-    turn = 0
-    myPath = []
-    spawn_square = ()
-
-    def turn(self):
-        self.turn += 1
-        myX = self.me["x"]
-        myY = self.me["y"]
-
-        choices = [(0, 1), (1, 0), (-1, 0), (0, -1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
-        occupied = []
-        for robot in self.get_visible_robots():
-            occupied.append((robot.x, robot.y))
-            # squares occupied by other robots are stored as x,y elements in list occupied
-
-        if self.me['unit'] == SPECS['CASTLE']:
-            # check empty space to spawn unit
-            for dx, dy in choices:
-                newX = myX + dx
-                newY = myY + dy
-                if self.check_valid_square(newX, newY) and self.karbonite > 95:
-                    flag = True
-                    for i in range(len(occupied)):
-                        if occupied[i][0] == newX and occupied[i][1] == newY:
-                            flag = False
-                    if flag == True:
-                        # if the space is passable, attempt to build unit
-                        return self.build_unit(SPECS["PILGRIM"], dx, dy)
-                # if self.check_valid_square(newX, newY):
-                #    flag = True
-                #    for i in range(len(occupied)):
-                #        if occupied[i][0] == newX and occupied[i][1] == newY:
-                #            flag = False
-                #    if flag == True:
-                #        # if the space is passable, attempt to build unit
-                #        if self.turn % 2 == 0:
-                #            return
-                #        return self.build_unit(SPECS["CRUSADER"], dx, dy)
-
-        elif self.me['unit'] == SPECS['PILGRIM']:
-
-
-            if self.full == True: # if mined to capacity, deposit resources
-                for robot in self.get_visible_robots():
-                    if robot.unit == SPECS["CASTLE"] and robot.team == self.me['team']:
-                        dx, dy = robot.x - myX, robot.y - myY
-                        if -2 < dx < 2 and -2 < dy < 2:
-                            self.full = False
-                            self.log("Depositing at " + robot.x + " " + robot.y)
-                            return self.give(robot.x - myX, robot.y - myY, self.me.karbonite, self.me.fuel)
-
-
-            if self.spawn_square == ():
-                self.spawn_square = (myX, myY)
-
-            #if self.myPath == []:
-            #    self.myPath = self.pathfindsteps(myX, myY,52,52)
-
-            if self.myPath != []:
-                if self.myPath[-1][0] == myX and self.myPath[-1][1] == myY:
-                    self.myPath = self.myPath[:len(self.myPath) - 1]  # deletes the last position
-
-            if self.myPath != []:
-                moveX, moveY = self.myPath[-1]
-                return self.move(moveX - myX, moveY - myY)
-
-            #if on a resource, mine
-            if (self.karbonite_map[myY][myX] or self.fuel_map[myY][myX]):
-                if self.me.fuel == 100 or self.me.karbonite == 10:
-                    self.full = True
-                    self.log("finding path...")
-                    self.myPath = self.pathfindsteps(myX, myY, self.spawn_square[0], self.spawn_square[1])
-                    self.log("found " + str(self.myPath))
-                    self.myPath = self.myPath[:len(self.myPath)-1]
-                    moveX, moveY = self.myPath[-1]
-                    return self.move(moveX - myX, moveY - myY)
-                self.log("Mining at" + myX + ',' + myY)
-                return self.mine()
-
-            else:  # search in increasingly bigger squares from starting point
-                # TODO: optimizze
-                for i in range(len(self.map)):
-                    for j in range(i + 1):
-                        for a in [-1, 1]:
-                            for b in [-1, 1]:
-                                # if a valid point on map, move left or right
-                                if len(self.map) > myY + a * i > 0 and len(self.map) > myX + b * j > 0:
-                                    if (self.karbonite_map[myY + a * i][myX + b * j] or self.fuel_map[myY + a * i][
-                                        myX + b * j]):
-                                        self.log("finding path...")
-                                        self.myPath = self.pathfindsteps(myX, myY, myX + b * j, myY + a * i)
-                                        self.log("found " + str(self.myPath))
-
-                                        # remove last element from list
-                                        self.myPath = self.myPath[:len(self.myPath) - 1]
-
-                                        # move in the direction of the last coordinates
-                                        moveX, moveY = self.myPath[-1]
-                                        return self.move(moveX - myX, moveY - myY)
-
-                                # if a valid point on map, move up or down
-                                elif len(self.map) > myX + a * i > 0 and len(self.map) > myY + b * j > 0:
-                                    if (self.karbonite_map[myY + b * j][myX + a * i] or self.fuel_map[myY + b * j][
-                                        myX + a * i]):
-                                        self.log("finding path...")
-                                        self.myPath = self.pathfindsteps(myX, myY, myX + a * i, myY + b * j)
-                                        self.log("found " + str(self.myPath))
-
-                                        self.myPath = self.myPath[:len(self.myPath) - 1]
-                                        moveX, moveY = self.myPath[-1]
-                                        return self.move(moveX - myX, moveY - myY)
-
-    def check_valid_square(self, x, y):  # checks to see if square is legal
-        if x >= len(self.map) or x < 0 or y >= len(self.map) or y < 0:
-            return False
-        return self.map[y][x]
-
-    def pathfindsteps(self, x, y, targetx, targety, path=[]):  # pathfinding using recursion
-        """
-            int x: initial x-coordinate
-            int y: initial y-courdinate
-            int targetx: final x-coordinate
-            int targety: dinal y-coordinate
-            path: list of coordinates
-
-            Returns:
-            False if no path was found
-            or
-            list of coordinates to the final x,y
-            [(destinationx, destinationy), (x1,y1), (x2,x2) ... (initialx, initialy)]
-        """
-
-        max_speed = SPECS["UNITS"][self.me["unit"]]["SPEED"]
-        if (x, y) == (targetx, targety):  # if success, return path!
-            return [(x, y)] + path
-        if not self.check_valid_square(x, y):  # if square is impassable, ignore
-            # self.log("reject because invalid terrain" + str((x, y)))
-            return False
-        flag = True
-        for i in path:  # if square is redundant, ignore
-            if i == (x, y):
-                flag = False
-                break
-        if not flag:
-            return False
-        if len(path) > 1:
-            prevx, prevy = path[1]
-            if self.heuristic(x, y, prevx,
-                              prevy) <= max_speed ** .5:  # if square could be landed on by previous move, ignore
-                return False
-
-        path = [(x, y)] + path  # add current coordinated to front of list
-        possible_moves = self.ranges[str(max_speed)]
-        harray = []
-        for moves in possible_moves:
-            dx, dy = moves
-            harray += [self.heuristic(x + dx, y + dy, targetx, targety)]
-        count = len(harray)
-
-        while count > 0:  # organize moves by hueristic
-
-            minindex = harray.index(min(harray))
-            harray[minindex] = 6969696969
-            dx, dy = possible_moves[minindex]
-            #self.log("check " +str((x+dx,y+dy)) + " " + str(path))
-            ret = self.pathfindsteps(x + dx, y + dy, targetx, targety, path)
-            if ret != False:
-                return ret
-            count -= 1
-
-        return False
-
-    def heuristic(self, x, y, targetx, targety):
-        # calculate the absolute distance between two points
-        return abs(x - targetx) + abs(y - targety)
-
-    def pathfind(self, myX, myY, targetX, targetY):
-        delX = targetX - myX
-        delY = targetY - myY
-        if (abs(delX) > abs(delY)):  # mostly x direction
-            signX = -1
-            if (delX > 0):
-                signX = 1  # find if X is positive/negative
-            signY = -1
-            if (delY > 0):
-                signY = 1  # find if Y is positive/negative
-            for i in range(0, delX + signX, signX):  # check all the spots
-                if (not self.map[myY + signY * min(abs(i), abs(delY))][myX + i]):  # if they arent passable
-                    blockX = myX + i
-                    blockY = myY + signY * min(abs(i), abs(delY))  # log blocked spot
-                    if (signY == 1):  # if youre going down, check up first
-                        for j in range(blockY, -1, -1):
-                            if (self.map[j][blockX]):
-                                return (blockX, j)
-                    for j in range(blockY, len(self.map)):  # check down
-                        if (self.map[j][blockX]):
-                            return (blockX, j)
-                    if (signY == -1):  # if going up, check up last
-                        for j in range(blockY, -1, -1):
-                            if (self.map[j][blockX]):
-                                return (blockX, j)
-                    self.log("blocked row?")
-        else:  # mostly y direction
-            signX = -1
-            if (delX > 0):
-                signX = 1  # find if X is positive/negative
-            signY = -1
-            if (delY > 0):
-                signY = 1  # find if Y is positive/negative
-            for i in range(0, delY + signY, signY):  # check all the spots
-                if (not self.map[myY + i][myX + signX * min(abs(i), abs(delX))]):  # if they arent passable
-                    blockX = myX + signX * min(abs(i), abs(delX))
-                    blockY = myY + i  # log blocked spot
-                    if (signX == 1):  # if youre going right, check left first
-                        for j in range(blockX, -1, -1):
-                            if (self.map[blockY][j]):
-                                return (j, blockY)
-                    for j in range(blockY, len(self.map)):  # check right
-                        if (self.map[blockY][j]):
-                            return (j, blockY)
-                    if (signX == -1):  # if going left, check left last
-                        for j in range(blockY, -1, -1):
-                            if (self.map[blockY][j]):
-                                return (j, blockY)
-                    self.log("blocked column?")
-
-    def pathfinder(self, x,y, targetx, targety):
-        ret = []
-        while True:
-            breakpoint = self.pathfind(x,y,targetx, targety)
-            r = self.pathfindsteps(x, y, targetx, targety)
-            ret = ret + r[:len(r)-1]
-            x,y = r[0]
-            # if unobstructed, go directly to final destination
-            if breakpoint == (targetx, targety):
-                return ret
-
-robot = MyRobot()
-
 
 ########### NEW CODE BELOW
 
@@ -313,7 +29,7 @@ __pragma__('opov')
 
 
 ######## BUGS ##########
-# pilgrims do not mine at unique squares
+#
 #
 #
 #######################
@@ -339,14 +55,12 @@ class MyRobot(BCAbstractRobot):
     found_karbonite_heuristic = []
     found_fuel_heuristic = []
     ignore_xy = []
-    unit_count = 0
+    unit_counts = {"PILGRIM":0, "CRUSADER":0}
     robotSpawn = -1
 
     def turn(self):
-
         myX = self.me["x"]
         myY = self.me["y"]
-        signaling = False
         choices = [(0, 1), (1, 0), (-1, 0), (0, -1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
         occupied = []
 
@@ -361,24 +75,17 @@ class MyRobot(BCAbstractRobot):
             if self.robotSpawn == -1:
                 self.robotSpawn = 0
 
-            for robot in self.get_visible_robots(): # if any teammate is requesting a certain signal, respond
-                if robot.team == self.me["team"]:
-                    if robot.signal == COMMUNICATION["ASK_TOTAL_SPAWNED_UNITS"]:
-                        self.signal(2, self.unit_count)
-                        signaling = True
-
             for dx, dy in choices:
                 newX = myX + dx
                 newY = myY + dy
-                if self.check_valid_square(newX, newY, occupied) and self.karbonite > 95:
+                if self.check_valid_square(newX, newY, occupied):
                     self.signal(self.robotSpawn,abs(dx)+abs(dy))
                     self.robotSpawn += 1
-                    self.unit_count += 1
-                    diction["0"] += 1
+                    self.unit_counts["PILGRIM"] += 1
                     return self.build_unit(SPECS["PILGRIM"], dx, dy)
 
         elif self.me['unit'] == SPECS['PILGRIM']:
-            self.log("my Path " + str(self.myPath))
+            #self.log("my Path " + str(self.myPath))
             
             if self.robotSpawn == -1:
                 for r in self.get_visible_robots():
@@ -395,6 +102,7 @@ class MyRobot(BCAbstractRobot):
                         if -2 < dx < 2 and -2 < dy < 2:
                             self.full = False
                             self.log("Depositing at " + robot.x + ", " + robot.y)
+                            self.myPath = []
                             return self.give(dx, dy, self.me.karbonite, self.me.fuel)
 
             if self.spawn_castle == []:
@@ -428,7 +136,18 @@ class MyRobot(BCAbstractRobot):
             if self.myPath != []:
                 m = self.movenext(myX, myY, occupied)
                 if not m:
-                    self.myPath = []
+                    if self.full:
+                        X, Y = self.spawn_castle[0], self.spawn_castle[1]
+                        distance_sq_choices = [((myX - X - dx) ** 2 + (myY - Y - dy) ** 2, dx, dy) for dx, dy in choices]
+                        for distance_sq_choices, dx, dy in sorted(distance_sq_choices):
+                            if not self.check_valid_square(X + dx, Y + dy, occupied):
+                                break
+                            else:
+                                self.myPath = self.pathfindsteps(myX, myY, X + dx, Y + dy, [], [])
+                                self.log("deposit path... " + str(self.myPath))
+                                return self.movenext(myX, myY, occupied)
+                    else:
+                        self.myPath = []
                 return m
 
             # if on a resource, mine
@@ -436,10 +155,10 @@ class MyRobot(BCAbstractRobot):
                 if self.me.fuel == 100 or self.me.karbonite == 10:
                     self.full = True
                     X, Y = self.spawn_castle[0], self.spawn_castle[1]
-                    for dx, dy in choices:
-                        for r in occupied:
-                            if (r[0], r[1]) == (X + dx, Y + dy):
-                                break
+                    distance_sq_choices = [((myX-X-dx)**2 + (myY-Y-dy)**2,dx,dy) for dx,dy in choices]
+                    for distance_sq_choices, dx, dy in sorted(distance_sq_choices):
+                        if not self.check_valid_square(X+dx,Y+dy,occupied):
+                            break
                         else:
                             self.myPath = self.pathfindsteps(myX, myY, X + dx, Y + dy ,[], [])
                             self.log("deposit path... " + str(self.myPath))
@@ -448,11 +167,16 @@ class MyRobot(BCAbstractRobot):
                 return self.mine()
 
             else: #  search through already known fuel and karbonite points to get to closest resource
-                ignore = diction["0"] -1 # specifies the number of squares to ignore in search
-                fuel_check = True # if true, this will check for closest fuel resource
+                ignore = self.robotSpawn # specifies the number of squares to ignore in search
+                fuel_check = False # if true, this will check for closest fuel resource
                 karbonite_check = True #if true, this will check for closest karbonite resource
                 found_fuel_heuristic = self.found_fuel_heuristic[:]
                 found_karbonite_heuristic = self.found_karbonite_heuristic[:]
+                ignore_k = 0
+                ignore_f = 0
+
+                if self.robotSpawn >=3:
+                    fuel_check = True
 
                 if fuel_check == karbonite_check:
                     count = len(self.found_fuel) + len(self.found_karbonite)
@@ -469,8 +193,8 @@ class MyRobot(BCAbstractRobot):
                 while count > 0:
                     min_index = found_heuristic.index(min(found_heuristic))
                     found_heuristic[min_index] = 69696996969
-
-                    if ignore == 0:
+                    x,y = found[min_index]
+                    if ignore == 0 and (self.karbonite_map[y][x] and ignore_k <= 0) or (ignore_f <= 0 and self.fuel_map[y][x]):
                         for r in self.get_visible_robots():
                             if (r.x, r.y) == found[min_index]:
                                 if r.team == self.me['team'] and r.unit == self.me['unit']:
@@ -479,10 +203,12 @@ class MyRobot(BCAbstractRobot):
                         else:
 
                             self.myPath = self.pathfindsteps(myX, myY, found[min_index][0],
-                                                         found[min_index][1], [], [])
+                                                             found[min_index][1], [], [])
                             self.log("found new mining path " + str(self.myPath))
                             return self.movenext(myX, myY, occupied)
                     ignore -= 1
+                    ignore_k -= 1
+                    ignore_f -= 1
                     count -= 1
 
 
