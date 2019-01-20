@@ -22,6 +22,7 @@ __pragma__('opov')
 # == None and != None are not allowed
 # self.log reduces performance, remove if not debugging
 # a couple of strange errors are enumerated in Random Walk GroupMe
+# calling min() or max() on an empty array which result in Infinity
 #####################################
 
 
@@ -32,14 +33,26 @@ __pragma__('opov')
 #
 #######################
 
+# UNIT IMPROVEMENTS
 # TODO: add vision and grouping so units don't trickle into line of fire
 # TODO: add parity so units can take on preachers more effectively
 # TODO: add passive, defensive and aggressive behavior modifications
 # TODO: add modifier to prep_attack so units know how many castles to expect
 #   (in rare case that a castle is at 0,0)
 # TODO: add a modifier to prep_attack that immediately specifies a location (in case castle is in danger)
-# TODO: test code for archer retreat
-# TODO: build preacher rush bot
+# TODO: prioritize castle attack with rushes
+# TODO: smarter attacking with conditional layers. e.g. first organize by closest, then by health, then by type
+#
+
+# PILGRIIM/ECONOMY IMPROVEMENTS
+# TODO: implement mechanic for fuel transfer through other bots if can't reach castle
+# TODO: church + pilgrims
+# TODO: pilgrims give resources to closest castle
+# TODO: smarter ratio/deficit mining
+
+
+#PATHFINDING IMPROVEMENTS
+#Use daniel's original idea to prevent what has happened to archerRushNoEconomy -s 2091186138
 class MyRobot(BCAbstractRobot):
     # simple strat: spawn pilgrims, locate closest resources, dig
     # pathfinding done! not tested extensively yet tho
@@ -112,20 +125,19 @@ class MyRobot(BCAbstractRobot):
             for dx, dy in choices:
                 newX = myX + dx
                 newY = myY + dy
-                if self.check_valid_square(newX, newY, occupied) and self.karbonite >= 25 and self.first_castle:
-                    self.log("PIZZA TIME!")
-                    return self.build_unit(SPECS["PROPHET"], dx, dy)
-                if self.check_valid_square(newX, newY, occupied) and self.karbonite >= 15 and self.first_castle:
-                    self.log("PIZZA TIME!")
-                    return self.build_unit(SPECS["CRUSADER"],dx,dy)
-                if self.check_valid_square(newX, newY, occupied) and self.karbonite >= 10 and self.first_castle and len(self.get_visible_robots()) <= 20:
+                if self.check_valid_square(newX, newY, occupied) and self.karbonite >= 30 and self.first_castle and self.me["turn"] > 1:
+                    self.log("PREACHER TIME!")
+                    return self.build_unit(SPECS["PREACHER"], dx, dy)
+                #if self.check_valid_square(newX, newY, occupied) and self.karbonite >= 15 and self.first_castle:
+                #    self.log("PIZZA TIME!")
+                #    return self.build_unit(SPECS["CRUSADER"],dx,dy)
+                if self.check_valid_square(newX, newY, occupied) and self.karbonite >= 10 and self.first_castle and self.robotSpawn <= 2:
                     self.signal(self.robotSpawn, (abs(dx) + abs(dy))**2)
                     self.robotSpawn += 1
                     return self.build_unit(SPECS["PILGRIM"], dx, dy)
 
 
             else:
-
                 if not self.already_signaled and self.prep_attack:
                     self.log("GO TIME!")
                     self.log(self.my_castle_locations)
@@ -134,7 +146,8 @@ class MyRobot(BCAbstractRobot):
                     self.signal(signal, 4)
                     self.already_signaled = True
                 if not self.prep_attack:
-                    self.signal((2**16)-1, 4)
+                    self.log("HEAR ME SOLDIERS!")
+                    self.signal((2**16)-1, 9)
                     self.prep_attack = True
                 return self.if_visible_attack(myX, myY)
 
@@ -391,6 +404,51 @@ class MyRobot(BCAbstractRobot):
                     self.signal(1, 6)
                 return self.movenext(myX, myY, occupied)
 
+        elif self.me["unit"] == SPECS["PREACHER"]:
+            myX = self.me["x"]
+            myY = self.me["y"]
+
+            ret = self.if_visible_attack(myX, myY, "MAX_DAMAGE")
+            if ret != False:
+                return ret
+            for robot in self.get_visible_robots():
+                if robot.signal != -1 and self.me["team"] == robot.team:
+                    if robot.unit == SPECS["CASTLE"]:
+                        if self.prep_attack: # get coordinates and attack!
+                            self.log(robot.signal)
+                            coords = self.convert_compressed_signal(robot.signal)
+                            coords = [i for i in coords if i != (0,0)]
+                            self.symmetry = self.find_symmetry()
+                            coords = [self.reflect(robot.x, robot.y,self.symmetry[1],self.symmetry[0])] + coords
+
+                            r = []
+                            for x,y in coords:
+                                r.append(self.fix_approximation(x,y,4))
+                            self.log("ENEMY CASTLES" + str(r))
+                            self.way_points = r
+                        if robot.signal == (2**16)-1: # if the signal is given to attack, wait for coordinates
+                            self.log("AWAITING ORDERS...")
+                            self.prep_attack = True
+                    if robot.signal == 1 and robot.unit == SPECS["CRUSADER"]:
+                        self.myPath = []
+                        break
+
+            if self.myPath == []: # if no path queued, start moving to the first enemy castle not visited
+                for point in self.way_points:
+                    for visited_point in self.visited_points:
+                        if visited_point == point:
+                            break
+                    else:
+                        self.visited_points.append(point)
+                        fixed = self.fix_approximation(point[0],point[1],4)
+                        self.myPath = self.pathfindsteps(myX,myY,fixed[0],fixed[1],[],occupied)[:-1]# MIGHT RUN INTO ISSUES
+                        self.log(self.myPath)
+                        return self.movenext(myX,myY,occupied)
+            else:
+                if len(self.myPath) == 1:
+                    self.log("NEW CASTLE!!!")
+                    self.signal(1, 36)
+                return self.movenext(myX, myY, occupied)
 
 
     def retreat_from(self, myX, myY, enemy_list, occupied):
@@ -410,7 +468,6 @@ class MyRobot(BCAbstractRobot):
                     if radius_min <= d <= radius_max:# if still in range of enemy_attack, make move bad
                         heuristic[index] -= 1000
                     heuristic[index] += d
-
 
         max_index = heuristic.index(max(heuristic))
         dx,dy = possible_moves[max_index]
@@ -492,6 +549,7 @@ class MyRobot(BCAbstractRobot):
             newy = mid_point - y
         return newx, newy
 
+
     def if_visible_attack(self, myX, myY, category="MAX_ID", *args):
 
         # categories are "CLOSEST_TO", "MAX_ID", "FARTHEST_FROM", "TYPE", "ID", "MAX_DAMAGE"
@@ -506,6 +564,7 @@ class MyRobot(BCAbstractRobot):
         if attackable_robots == []:
             return False
         id_ = -1
+
         if category == "MAX_ID":  # if the enemy has the highest ID, attack it
             id_ = max([i.id for i in attackable_robots])
         elif category == "CLOSEST_TO":  # if the enemy is closest to x,y, attack it
@@ -537,12 +596,14 @@ class MyRobot(BCAbstractRobot):
                             attack_will_hit[index] += 1
             max_index = attack_will_hit.index(max(attack_will_hit))
             target = attackable_robots[max_index]
+
             return self.attack(target.x - myX, target.y - myY)
 
         for r in attackable_robots:
             if r.id == id_:
                 return self.attack(r.x - myX, r.y - myY)
         return False
+
 
     def check_valid_square(self, x, y, occupied):  # checks to see if square is passable and unoccupied
         if x >= len(self.map) or x < 0 or y >= len(self.map) or y < 0:
