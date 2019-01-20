@@ -33,16 +33,19 @@ __pragma__('opov')
 #
 #######################
 
+# META IMPROVEMENTS
+# scouting
+# unit formations
+
 # UNIT IMPROVEMENTS
-# TODO: add vision and grouping so units don't trickle into line of fire
-# TODO: add parity so units can take on preachers more effectively
+# TODO: add vision and grouping so units don't trickle into line of fire (IMP)
+# TODO: add parity so units can take on preachers more effectively (IMP)
 # TODO: add passive, defensive and aggressive behavior modifications
 # TODO: add modifier to prep_attack so units know how many castles to expect
 #   (in rare case that a castle is at 0,0)
 # TODO: add a modifier to prep_attack that immediately specifies a location (in case castle is in danger)
-# TODO: prioritize castle attack with rushes
-# TODO: smarter attacking with conditional layers. e.g. first organize by closest, then by health, then by type
-#
+# TODO: smarter attacking with conditional layers. e.g. first organize by closest, then by health, then by unit type(IMP)
+# TODO: when retreating maximize valid squares around unit so it doesn't get backed into a corner (IMP)
 
 # PILGRIIM/ECONOMY IMPROVEMENTS
 # TODO: implement mechanic for fuel transfer through other bots if can't reach castle
@@ -53,6 +56,8 @@ __pragma__('opov')
 
 #PATHFINDING IMPROVEMENTS
 #Use daniel's original idea to prevent what has happened to archerRushNoEconomy -s 2091186138
+
+
 class MyRobot(BCAbstractRobot):
     # simple strat: spawn pilgrims, locate closest resources, dig
     # pathfinding done! not tested extensively yet tho
